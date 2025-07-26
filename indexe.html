@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Détection Fruits avec Roboflow API</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .floating-shapes {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .shape {
+      position: absolute;
+      opacity: 0.1;
+      animation: float 20s infinite linear;
+    }
+
+    .shape.apple { font-size: 2rem; color: #ff6b6b; }
+    .shape.orange { font-size: 1.8rem; color: #ffa726; }
+    .shape.banana { font-size: 1.6rem; color: #ffeb3b; }
+    .shape.grape { font-size: 1.4rem; color: #9c27b0; }
+
+    @keyframes float {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+      }
+      10% { opacity: 0.1; }
+      90% { opacity: 0.1; }
+      100% {
+        transform: translateY(-100px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(25px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      max-width: 800px;
+      width: 100%;
+      border-radius: 32px;
+      padding: 50px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      transform-style: preserve-3d;
+    }
+
+    .container:hover {
+      transform: translateY(-10px) rotateX(5deg);
+      box-shadow: 
+        0 35px 70px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .header {
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    h1 {
+      background: linear-gradient(135deg, #fff 0%, #f8f9fa 50%, #e9ecef 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 800;
+      font-size: 3rem;
+      letter-spacing: -0.03em;
+      text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 15px;
+      position: relative;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 1.2rem;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .ai-badge {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .upload-area {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px 50px;
+      border-radius: 60px;
+      font-weight: 600;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 15px;
+      user-select: none;
+      border: none;
+      box-shadow: 
+        0 15px 35px rgba(102, 126, 234, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+      transform-style: preserve-3d;
+    }
+
+    .upload-button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.6s ease;
+    }
+
+    .upload-button:hover::before {
+      left: 100%;
+    }
+
+    .upload-button:hover {
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 
+        0 25px 50px rgba(102, 126, 234, 0.5),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .upload-button:active {
+      transform: translateY(-2px) scale(0.98);
+    }
+
+    .upload-icon {
+      font-size: 1.4rem;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-8px); }
+      60% { transform: translateY(-4px); }
+    }
+
+    #loader {
+      margin-top: 30px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.9);
+      display: none;
+      font-size: 1.2rem;
+      letter-spacing: 0.02em;
+    }
+
+    .loader-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 20px 30px;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .loader-spinner {
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1.2s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .canvas-container {
+      margin-top: 40px;
+      position: relative;
+      display: none;
+    }
+
+    canvas {
+      max-width: 100%;
+      border-radius: 20px;
+      box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.4s ease;
+    }
+
+    canvas:hover {
+      transform: scale(1.02) rotateX(2deg);
+      box-shadow: 
+        0 25px 80px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .error {
+      margin-top: 30px;
+      color: #fff;
+      font-weight: 500;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      backdrop-filter: blur(15px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 20px 25px;
+      border-radius: 20px;
+      display: none;
+      box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+      animation: shake 0.5s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .stats {
+      margin-top: 30px;
+      display: none;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 30px;
+      border-radius: 24px;
+      text-align: left;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 25px;
+      color: white;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .stats-icon {
+      background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+      padding: 12px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(78, 205, 196, 0.3);
+    }
+
+    .detection-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .detection-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateX(5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .detection-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .detection-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .fruit-icon {
+      font-size: 2rem;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .fruit-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+
+    .confidence-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .confidence-text {
+      font-weight: 600;
+      font-size: 1rem;
+      min-width: 50px;
+    }
+
+    .confidence-bar {
+      width: 120px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4ecdc4 0%, #44a08d 100%);
+      border-radius: 10px;
+      transition: width 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .confidence-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 40px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 1.2rem;
+    }
+
+    .no-results i {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 25px;
+        margin: 10px;
+        border-radius: 24px;
+      }
+      
+      h1 {
+        font-size: 2.2rem;
+      }
+      
+      .upload-button {
+        padding: 20px 35px;
+        font-size: 1.1rem;
+      }
+      
+      .stats {
+        padding: 20px;
+      }
+    }
+
+    .fruit-emojis {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      font-size: 1.2rem;
+      opacity: 0;
+      animation: popIn 0.6s ease forwards;
+    }
+
+    @keyframes popIn {
+      0% {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="floating-shapes"></div>
+  
+  <div class="container">
+    <div class="header">
+      <h1>
+        <i class="fas fa-seedling" style="color: #4ecdc4;"></i>
+        Détecteur de Fruits IA
+        <i class="fas fa-apple-alt" style="color: #ff6b6b;"></i>
+      </h1>
+      <div class="subtitle">
+        <span>Technologie de pointe</span>
+        <div class="ai-badge">
+          <i class="fas fa-brain"></i>
+          Intelligence Artificielle
+        </div>
+      </div>
+    </div>
+
+    <div class="upload-area">
+      <label for="imageInput" class="upload-button">
+        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+        Télécharger une image
+      </label>
+      <input type="file" id="imageInput" accept="image/*" />
+    </div>
+
+    <div id="loader">
+      <div class="loader-content">
+        <div class="loader-spinner"></div>
+        <div>
+          <i class="fas fa-search" style="margin-right: 8px;"></i>
+          Analyse en cours avec l'IA...
+        </div>
+      </div>
+    </div>
+    
+    <div class="canvas-container">
+      <canvas id="canvas"></canvas>
+    </div>
+    
+    <div id="stats" class="stats">
+      <div class="stats-header">
+        <div class="stats-icon">
+          <i class="fas fa-bullseye"></i>
+        </div>
+        <span>Résultats de détection</span>
+      </div>
+      <div id="detectionsList"></div>
+    </div>
+    
+    <div id="errorMsg" class="error"></div>
+  </div>
+
+  <script>
+    const apiKey = "aMkuT5BMmcM8ruzbEXPB";
+    const modelEndpoint = "final-mlclc/1";
+
+    const input = document.getElementById("imageInput");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const loader = document.getElementById("loader");
+    const errorMsg = document.getElementById("errorMsg");
+    const stats = document.getElementById("stats");
+    const detectionsList = document.getElementById("detectionsList");
+    const canvasContainer = document.querySelector(".canvas-container");
+
+    // Icônes pour tous les fruits de ton modèle
+    const fruitIcons = {
+      'apple': '🍎',
+      'banana': '🍌',
+      'cherry': '🍒',
+      'cucumber': '🥒',
+      'grapes': '🍇',
+      'kiwi': '🥝',
+      'lemon': '🍋',
+      'mango': '🥭',
+      'orange': '🍊',
+      'pinapple': '🍍',
+      'pineapple': '🍍', // au cas où il y aurait une variation
+      'tomato': '🍅',
+      'water_melon': '🍉',
+      'watermelon': '🍉', // variation possible
+      'default': '🍎'
+    };
+
+    // Couleurs spécifiques pour chaque fruit
+    const fruitColors = {
+      'apple': '#ff6b6b',
+      'banana': '#feca57',
+      'cherry': '#ff3838',
+      'cucumber': '#26de81',
+      'grapes': '#8c7ae6',
+      'kiwi': '#2ed573',
+      'lemon': '#ffa502',
+      'mango': '#ff6348',
+      'orange': '#ff9500',
+      'pinapple': '#f39c12',
+      'pineapple': '#f39c12',
+      'tomato': '#ff4757',
+      'water_melon': '#ff3838',
+      'watermelon': '#ff3838',
+      'default': '#ff6b6b'
+    };
+
+    // Créer des formes flottantes avec des icônes FontAwesome
+    function createFloatingShapes() {
+      const container = document.querySelector('.floating-shapes');
+      const shapes = [
+        { icon: 'fas fa-apple-alt', class: 'apple' },
+        { icon: 'fas fa-leaf', class: 'orange' },
+        { icon: 'fas fa-seedling', class: 'banana' },
+        { icon: 'fas fa-spa', class: 'grape' }
+      ];
+
+      for (let i = 0; i < 15; i++) {
+        const shape = document.createElement('div');
+        const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+        shape.className = `shape ${randomShape.class}`;
+        shape.innerHTML = `<i class="${randomShape.icon}"></i>`;
+        shape.style.left = Math.random() * 100 + '%';
+        shape.style.animationDelay = Math.random() * 20 + 's';
+        shape.style.animationDuration = (15 + Math.random() * 10) + 's';
+        container.appendChild(shape);
+      }
+    }
+
+    createFloatingShapes();
+
+    function hideElements() {
+      errorMsg.style.display = "none";
+      stats.style.display = "none";
+      canvasContainer.style.display = "none";
+    }
+
+    function showLoader() {
+      loader.style.display = "block";
+    }
+
+    function hideLoader() {
+      loader.style.display = "none";
+    }
+
+    function showError(message) {
+      errorMsg.innerHTML = `<i class="fas fa-exclamation-triangle" style="margin-right: 10px;"></i>${message}`;
+      errorMsg.style.display = "block";
+    }
+
+    function getFruitIcon(fruitName) {
+      const name = fruitName.toLowerCase().replace(/[_\s]/g, '');
+      return fruitIcons[name] || fruitIcons[fruitName.toLowerCase()] || fruitIcons['default'];
+    }
+
+    function getFruitColor(fruitName) {
+      const name = fruitName.toLowerCase().replace(/[_\s]/g, '');
+      return fruitColors[name] || fruitColors[fruitName.toLowerCase()] || fruitColors['default'];
+    }
+
+    function showStats(predictions) {
+      if (predictions.length === 0) {
+        detectionsList.innerHTML = `
+          <div class="no-results">
+            <i class="fas fa-search"></i>
+            <div>Aucun fruit détecté dans cette image</div>
+          </div>
+        `;
+      } else {
+        detectionsList.innerHTML = '';
+        predictions.forEach((p, index) => {
+          const item = document.createElement('div');
+          item.className = 'detection-item';
+          
+          const confidence = Math.round(p.confidence * 100);
+          const fruitIcon = getFruitIcon(p.class);
+          const fruitColor = getFruitColor(p.class);
+          
+          item.innerHTML = `
+            <div class="detection-info">
+              <span class="fruit-icon" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));">${fruitIcon}</span>
+              <div>
+                <div class="fruit-name" style="color: ${fruitColor};">${p.class.replace(/_/g, ' ')}</div>
+                <div style="font-size: 0.9rem; opacity: 0.7; color: rgba(255,255,255,0.8);">
+                  <i class="fas fa-crosshairs" style="margin-right: 5px;"></i>Détecté avec précision
+                </div>
+              </div>
+            </div>
+            <div class="confidence-section">
+              <span class="confidence-text" style="color: ${fruitColor};">${confidence}%</span>
+              <div class="confidence-bar">
+                <div class="confidence-fill" style="width: 0%; background: linear-gradient(90deg, ${fruitColor} 0%, ${fruitColor}dd 100%);"></div>
+              </div>
+            </div>
+          `;
+          
+          detectionsList.appendChild(item);
+          
+          // Animation de la barre de progression
+          setTimeout(() => {
+            const fill = item.querySelector('.confidence-fill');
+            fill.style.width = confidence + '%';
+          }, index * 200);
+        });
+      }
+      
+      stats.style.display = "block";
+    }
+
+    input.addEventListener("change", () => {
+      const file = input.files[0];
+      if (!file) return;
+
+      hideElements();
+      showLoader();
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(",")[1];
+
+        try {
+          const response = await fetch(`https://detect.roboflow.com/${modelEndpoint}?api_key=${apiKey}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: base64
+          });
+
+          if (!response.ok) throw new Error(`Erreur réseau : ${response.status}`);
+
+          const result = await response.json();
+          hideLoader();
+
+          const img = new Image();
+          img.src = reader.result;
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            canvasContainer.style.display = "block";
+
+            if (result.predictions && result.predictions.length > 0) {
+              // Dessiner les détections avec couleurs spécifiques à chaque fruit
+              result.predictions.forEach((p, index) => {
+                const x = p.x - p.width / 2;
+                const y = p.y - p.height / 2;
+                
+                // Utiliser la couleur spécifique du fruit
+                const color = getFruitColor(p.class);
+                const fruitIcon = getFruitIcon(p.class);
+                
+                // Effet de lueur avec la couleur du fruit
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 25;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, p.width, p.height);
+                
+                // Bordure intérieure blanche
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + 2, y + 2, p.width - 4, p.height - 4);
+                
+                // Label avec design moderne et couleur du fruit
+                const labelHeight = 45;
+                const labelWidth = Math.max(p.width, 160);
+                
+                // Fond du label avec gradient de la couleur du fruit
+                const gradient = ctx.createLinearGradient(x, y - labelHeight, x, y);
+                gradient.addColorStop(0, color + 'f0');
+                gradient.addColorStop(1, color + 'cc');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, y - labelHeight, labelWidth, labelHeight);
+                
+                // Bordure du label
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y - labelHeight, labelWidth, labelHeight);
+                
+                // Texte avec ombre portée
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 4;
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 16px 'Poppins', sans-serif";
+                ctx.textAlign = "left";
+                
+                // Nom du fruit avec emoji
+                const fruitName = p.class.replace(/_/g, ' ');
+                ctx.fillText(`${fruitIcon} ${fruitName}`, x + 12, y - 22);
+                
+                // Pourcentage de confiance
+                ctx.font = "600 14px 'Poppins', sans-serif";
+                ctx.fillText(`🎯 ${(p.confidence * 100).toFixed(1)}%`, x + 12, y - 6);
+                
+                // Reset shadow
+                ctx.shadowBlur = 0;
+              });
+              
+              showStats(result.predictions);
+            } else {
+              showError("Aucun fruit détecté dans cette image. Essayez avec une autre image !");
+              showStats([]);
+            }
+          };
+        } catch (err) {
+          hideLoader();
+          showError("Erreur de connexion à l'API : " + err.message);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
