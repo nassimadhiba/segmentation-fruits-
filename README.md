@@ -1,4 +1,4 @@
-#Segmentation et Détection Automatique de Fruits
+# Segmentation et Détection Automatique de Fruits
  
 Ce projet permet de détecter, segmenter et compter automatiquement des fruits à partir d’images, en utilisant la vision par ordinateur. Il fournit également une interface web interactive pour visualiser les résultats en temps réel.
 
